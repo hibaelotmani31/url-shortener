@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
-const url = require('url');
+const fs = require('fs');
 const app = express();
 
 const port = process.env.PORT || 3000;
+const DB_FILE = './urls.json';
 
 app.use(cors());
 app.use(express.json());
@@ -16,13 +17,18 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-app.get('/api/hello', function(req, res) {
-  res.json({ greeting: 'hello API' });
-});
+// Charger la DB depuis le fichier
+function loadDB() {
+  try {
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  } catch (e) {
+    return { counter: 1, urls: {} };
+  }
+}
 
-// Stockage en mémoire
-const urlDatabase = {};
-let counter = 1;
+function saveDB(db) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(db));
+}
 
 app.post('/api/shorturl', function(req, res) {
   const originalUrl = req.body.url;
@@ -38,15 +44,18 @@ app.post('/api/shorturl', function(req, res) {
     if (err) {
       return res.json({ error: 'invalid url' });
     }
-    const shortUrl = counter++;
-    urlDatabase[shortUrl] = originalUrl;
+    const db = loadDB();
+    const shortUrl = db.counter++;
+    db.urls[shortUrl] = originalUrl;
+    saveDB(db);
     res.json({ original_url: originalUrl, short_url: shortUrl });
   });
 });
 
 app.get('/api/shorturl/:short_url', function(req, res) {
   const shortUrl = parseInt(req.params.short_url);
-  const originalUrl = urlDatabase[shortUrl];
+  const db = loadDB();
+  const originalUrl = db.urls[shortUrl];
 
   if (!originalUrl) {
     return res.json({ error: 'No short URL found' });
