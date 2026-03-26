@@ -2,11 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const dns = require('dns');
-const fs = require('fs');
+const mongoose = require('mongoose');
 const app = express();
 
 const port = process.env.PORT || 3000;
-const DB_FILE = './urls.json';
+
+mongoose.connect(process.env.MONGO_URI);
+
+const urlSchema = new mongoose.Schema({
+  original_url: String,
+  short_url: Number
+});
+
+const Url = mongoose.model('Url', urlSchema);
 
 app.use(cors());
 app.use(express.json());
@@ -17,19 +25,7 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-function loadDB() {
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (e) {
-    return { counter: 1, urls: {} };
-  }
-}
-
-function saveDB(db) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db));
-}
-
-app.post('/api/shorturl', function(req, res) {
+app.post('/api/shorturl', async function(req, res) {
   const originalUrl = req.body.url;
 
   let hostname;
@@ -39,28 +35,27 @@ app.post('/api/shorturl', function(req, res) {
     return res.json({ error: 'invalid url' });
   }
 
-  dns.lookup(hostname, function(err) {
+  dns.lookup(hostname, async function(err) {
     if (err) {
       return res.json({ error: 'invalid url' });
     }
-    const db = loadDB();
-    const shortUrl = db.counter++;
-    db.urls[shortUrl] = originalUrl;
-    saveDB(db);
+    const count = await Url.countDocuments();
+    const shortUrl = count + 1;
+    const newUrl = new Url({ original_url: originalUrl, short_url: shortUrl });
+    await newUrl.save();
     res.json({ original_url: originalUrl, short_url: shortUrl });
   });
 });
 
-app.get('/api/shorturl/:short_url', function(req, res) {
+app.get('/api/shorturl/:short_url', async function(req, res) {
   const shortUrl = parseInt(req.params.short_url);
-  const db = loadDB();
-  const originalUrl = db.urls[shortUrl];
+  const found = await Url.findOne({ short_url: shortUrl });
 
-  if (!originalUrl) {
+  if (!found) {
     return res.json({ error: 'No short URL found' });
   }
 
-  res.redirect(originalUrl);
+  res.redirect(found.original_url);
 });
 
 app.listen(port, function() {
