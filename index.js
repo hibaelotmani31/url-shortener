@@ -6,7 +6,7 @@ const fs = require('fs');
 const app = express();
 
 const port = process.env.PORT || 3000;
-const DB_FILE = '/tmp/urls.json';
+const DB_FILE = './urls.json';
 
 app.use(cors());
 app.use(express.json());
