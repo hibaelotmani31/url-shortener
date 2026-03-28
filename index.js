@@ -4,7 +4,6 @@ const cors = require('cors');
 const dns = require('dns');
 const mongoose = require('mongoose');
 const app = express();
-
 const port = process.env.PORT || 3000;
 
 mongoose.connect(process.env.MONGO_URI);
@@ -28,7 +27,6 @@ app.get('/', function(req, res) {
 app.post('/api/shorturl', async function(req, res) {
   const originalUrl = req.body.url;
   
-  // Validation du format d'URL
   const urlPattern = /^(http|https):\/\/[^ "]+$/;
   if (!urlPattern.test(originalUrl)) {
     return res.json({ error: 'invalid url' });
@@ -41,7 +39,6 @@ app.post('/api/shorturl', async function(req, res) {
     return res.json({ error: 'invalid url' });
   }
   
-  // Vérifier si l'URL existe déjà
   const existingUrl = await Url.findOne({ original_url: originalUrl });
   if (existingUrl) {
     return res.json({ 
@@ -55,7 +52,6 @@ app.post('/api/shorturl', async function(req, res) {
       return res.json({ error: 'invalid url' });
     }
     
-    // Trouver le prochain short_url disponible
     const lastUrl = await Url.findOne().sort({ short_url: -1 });
     const shortUrl = lastUrl ? lastUrl.short_url + 1 : 1;
     
@@ -67,13 +63,18 @@ app.post('/api/shorturl', async function(req, res) {
 
 app.get('/api/shorturl/:short_url', async function(req, res) {
   const shortUrl = parseInt(req.params.short_url);
+  
+  if (isNaN(shortUrl)) {
+    return res.json({ error: 'Wrong format' });
+  }
+  
   const found = await Url.findOne({ short_url: shortUrl });
   
   if (!found) {
     return res.json({ error: 'No short URL found' });
   }
   
-  res.redirect(found.original_url);
+  return res.redirect(found.original_url);
 });
 
 app.listen(port, function() {
