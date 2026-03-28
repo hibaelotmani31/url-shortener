@@ -73,7 +73,7 @@ app.get('/api/shorturl/:short_url', async function(req, res) {
     return res.json({ error: 'No short URL found' });
   }
   
-  res.redirect(301, found.original_url);
+  res.redirect(found.original_url);
 });
 
 app.listen(port, function() {
